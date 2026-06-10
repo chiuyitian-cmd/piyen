@@ -1,0 +1,110 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Safety Net: Default Deny Catch-All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- GLOBAL REUSABLE HELPERS ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_-]+$');
+    }
+
+    // Helper to extract incoming document state
+    function incoming() {
+      return request.resource.data;
+    }
+
+    // Helper to extract existing document state
+    function existing() {
+      return resource.data;
+    }
+
+    // --- ENTITY VALIDATION BLUEPRINTS ---
+
+    // Strict validator for User Profiles
+    function isValidUser(data) {
+      return data.keys().hasAll(['userId', 'displayName', 'email', 'createdAt', 'updatedAt'])
+        && data.keys().size() == 5
+        && data.userId is string && data.userId == request.auth.uid && isValidId(data.userId)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 100
+        && data.createdAt is string && data.createdAt.size() >= 20 && data.createdAt.size() <= 24
+        && data.updatedAt is string && data.updatedAt.size() >= 20 && data.updatedAt.size() <= 24;
+    }
+
+    // Strict validator for Table Reservations
+    function isValidReservation(data) {
+      return data.keys().hasAll([
+          'reservationId', 'userId', 'userName', 'userEmail', 
+          'date', 'time', 'partySize', 'tableNumber', 
+          'specialRequests', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().size() == 11
+        && data.reservationId is string && isValidId(data.reservationId)
+        && data.userId is string && data.userId == request.auth.uid && isValidId(data.userId)
+        && data.userName is string && data.userName.size() >= 1 && data.userName.size() <= 100
+        && data.userEmail is string && data.userEmail.size() >= 3 && data.userEmail.size() <= 100
+        && data.date is string && data.date.size() == 10
+        && data.time is string && data.time.size() == 5
+        && data.partySize is int && data.partySize >= 1 && data.partySize <= 20
+        && data.tableNumber is int && data.tableNumber >= 1 && data.tableNumber <= 10
+        && data.specialRequests is string && data.specialRequests.size() <= 500
+        && data.status is string && (data.status == 'confirmed' || data.status == 'cancelled')
+        && data.createdAt is string && data.createdAt.size() >= 20 && data.createdAt.size() <= 24
+        && data.updatedAt is string && data.updatedAt.size() >= 20 && data.updatedAt.size() <= 24;
+    }
+
+    // 2. User Profiles Collection Rules
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      
+      allow create: if isOwner(userId) 
+                    && isValidUser(incoming()) 
+                    && incoming().updatedAt == incoming().createdAt;
+                    
+      allow update: if isOwner(userId) 
+                    && isValidUser(incoming()) 
+                    && incoming().createdAt == existing().createdAt 
+                    && incoming().userId == existing().userId;
+                    
+      allow delete: if false; // Users cannot be deleted from client SDK
+    }
+
+    // 3. Reservations Collection Rules
+    match /reservations/{reservationId} {
+      // Direct get or listings queries strictly restricted to the resource owner
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      
+      allow create: if isSignedIn() 
+                    && isValidId(reservationId) 
+                    && incoming().reservationId == reservationId
+                    && isValidReservation(incoming()) 
+                    && incoming().updatedAt == incoming().createdAt;
+                    
+      allow update: if isSignedIn() 
+                    && isValidId(reservationId) 
+                    && isValidReservation(incoming())
+                    && incoming().createdAt == existing().createdAt
+                    && incoming().userId == existing().userId
+                    && incoming().reservationId == existing().reservationId
+                    && (
+                      // Customers are only allowed to update their own reservation status to cancelled
+                      incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) 
+                      && incoming().status == 'cancelled'
+                    );
+                    
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+  }
+}

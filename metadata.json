@@ -1,0 +1,6 @@
+{
+  "name": "餐廳訂位系統",
+  "description": "具有優雅色調與讚美/嘲諷特色語錄的餐廳即時訂位管理系統",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

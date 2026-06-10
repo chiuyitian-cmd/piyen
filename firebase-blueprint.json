@@ -1,0 +1,47 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile document containing names and email address",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Auth UID of the user" },
+        "displayName": { "type": "string", "description": "Display name of the user" },
+        "email": { "type": "string", "description": "Email address of the user" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" }
+      },
+      "required": ["userId", "displayName", "email", "createdAt", "updatedAt"]
+    },
+    "Reservation": {
+      "title": "Reservation",
+      "description": "Restaurant table booking record",
+      "type": "object",
+      "properties": {
+        "reservationId": { "type": "string", "description": "Unique reservation identifier" },
+        "userId": { "type": "string", "description": "Auth UID of the booking user" },
+        "userName": { "type": "string", "description": "Name of the booking customer" },
+        "userEmail": { "type": "string", "description": "Email of the booking customer" },
+        "date": { "type": "string", "description": "Booking date in YYYY-MM-DD" },
+        "time": { "type": "string", "description": "Booking time slot in HH:MM" },
+        "partySize": { "type": "integer", "description": "Number of guests" },
+        "tableNumber": { "type": "integer", "description": "Assigned table number" },
+        "specialRequests": { "type": "string", "description": "Any custom requests or allergy notices" },
+        "status": { "type": "string", "description": "Status of the booking: confirmed or cancelled" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" }
+      },
+      "required": ["reservationId", "userId", "userName", "userEmail", "date", "time", "partySize", "tableNumber", "status", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Users collection containing personal profiles"
+    },
+    "/reservations/{reservationId}": {
+      "schema": "Reservation",
+      "description": "Reservations collection containing table bookings"
+    }
+  }
+}
